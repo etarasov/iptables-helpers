@@ -1,6 +1,7 @@
 
 module Iptables.Print where
 
+import Codec.Binary.UTF8.String
 import Data.Bits
 import Data.List
 import Data.Set (toList)
@@ -86,7 +87,7 @@ printOption opt = case opt of
     (OPhysDevIsIn b) -> undefined b
     (OPhysDevIsOut b) -> undefined b
     (OPhysDevIsBridged b) -> unwords $ printInv b ++ ["--physdev-is-bridged"]
-    (OComment c) -> undefined c
+    (OComment c) -> "--comment" ++ " " ++ printComment c
     (OUnknown oName b opts) -> unwords $ printInv b ++ [oName] ++ opts
 
 printInv :: Bool -> [String]
@@ -214,3 +215,17 @@ printRejectWith rw = case rw of
     RTHostProhibited -> "icmp-host-prohibited"
     RTAdminProhibited -> "icmp-admin-prohibited"
     RTTcpReset -> "tcp-reset"
+
+-- | Iptables doesn't work correctly with russian chars.
+-- It's working only if a comment is enclosed with single quotes and it doesn't include spaces.
+-- Let's assume that this happens with all multibyte chars.
+printComment :: String -> String
+printComment com =
+    let onlyOneByteChars :: String -> Bool
+        onlyOneByteChars [] = True
+        onlyOneByteChars (x:xs) = if length (encodeChar x) > 1 then True
+                                                    else onlyOneByteChars xs
+    in
+    if onlyOneByteChars com
+        then com
+        else "'" ++ (map (\a -> if a == ' ' then '_' else a) com) ++ "'"

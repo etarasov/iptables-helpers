@@ -23,7 +23,8 @@ Library
                     parsec >= 2.1,
                     mtl >= 1.1,
                     safe >= 0.3,
-                    containers >= 0.4 && < 0.6
+                    containers >= 0.4 && < 0.6,
+                    utf8-string >=0.3 && < 0.4
 
   -- Other-modules:
 

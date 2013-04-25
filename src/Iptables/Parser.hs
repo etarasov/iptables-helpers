@@ -128,7 +128,7 @@ parseIptables = runParser iptables [] "input" . removeComments
     ruleOption :: GenParser Char [Chain] RuleOption
     ruleOption =
         choice [ oProtocol, oSource, oDest, oInput, oOutput, oModule, oSrcPort, oDstPort, oState
-               , oPhysDevIsBridged, oUnknown]
+               , oPhysDevIsBridged, oComment, oUnknown]
         where
         oProtocol = try $ do
             bool_ <- option True (char '!' >> char ' ' >> return False)
@@ -170,8 +170,8 @@ parseIptables = runParser iptables [] "input" . removeComments
             char ' '
             return $ OOutInt bool_ $ Interface interf
 
-        oModule = try $ do
-            try (string "-m") <|> string "--match"
+        oModule = do
+            try (try (string "-m") <|> string "--match")
             char ' '
             mod_ <- many1 alphaNum
             char ' '
@@ -180,6 +180,7 @@ parseIptables = runParser iptables [] "input" . removeComments
                 "udp" -> return $ OModule ModUdp
                 "state" -> return $ OModule ModState
                 "physdev" -> return $ OModule ModPhysDev
+                "comment" -> return $ OModule ModComment
                 a -> fail $ "unknown module: " ++ a
 
         oSrcPort = try $ do
@@ -218,6 +219,13 @@ parseIptables = runParser iptables [] "input" . removeComments
             string "--physdev-is-bridged"
             char ' '
             return $ OPhysDevIsBridged bool_
+
+        oComment = do
+            try (string "--comment")
+            many1 $ char ' '
+            comment <- commentParser
+            many $ char ' '
+            return $ OComment comment
 
         oUnknown = try $ do
             bool_ <- option True (char '!' >> char ' ' >> return False)
@@ -427,3 +435,16 @@ rejectTypeParser = do
 
 chainNameParser :: GenParser Char st String
 chainNameParser = many1 (alphaNum <|> char '-' <|> char '_')
+
+commentParser :: GenParser Char st String
+commentParser =
+    try ( do
+        char '\''
+        manyTill anyChar (try $ char '\'')
+        )
+    <|>
+    try ( do
+        char '"'
+        manyTill anyChar (try $ char '"')
+        )
+    <|> many1 (noneOf " \n\r\t")

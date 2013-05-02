@@ -119,7 +119,9 @@ filterRule = do
                     , TUChain <$> (listOf $ elements $ ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'])
                     ]
     Rule <$> arbitrary
-         <*> arbitrary
+         <*> do
+            optNum <- choose (1,3)
+            vectorOf optNum arbitrary
          <*> pure target
         
 natRule :: Gen Rule
@@ -134,7 +136,9 @@ natRule = do
                     , TUChain <$> (listOf $ elements $ ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'])
                     ]
     Rule <$> arbitrary
-         <*> arbitrary
+         <*> do
+            optNum <- choose (1,3)
+            vectorOf optNum arbitrary
          <*> pure target
 
 instance Arbitrary Policy where
@@ -188,15 +192,15 @@ instance Arbitrary RuleOption where
               , ODest <$> arbitrary <*> arbitrary
               , OInInt <$> arbitrary <*> arbitrary
               , OOutInt <$> arbitrary <*> arbitrary
-              , OState <$> (vectorOf 7 arbitrary >>= return . fromList )
+              , OState <$> (vectorOf 3 arbitrary >>= return . fromList )
               , OSourcePort <$> arbitrary <*> arbitrary
               , ODestPort <$> arbitrary <*> arbitrary
               , OModule <$> arbitrary
-              , OPort <$> arbitrary <*> arbitrary
-              , OPhysDevIn <$> arbitrary <*> arbitrary
-              , OPhysDevOut <$> arbitrary <*> arbitrary
+              --, OPort <$> arbitrary <*> arbitrary
+              --, OPhysDevIn <$> arbitrary <*> arbitrary
+              --, OPhysDevOut <$> arbitrary <*> arbitrary
               , OComment <$> pure "test comment"
-              , OUnknown <$> pure "unknown" <*> arbitrary <*> pure []
+              , OUnknown <$> pure "--unknown" <*> arbitrary <*> pure ["opt"]
               ]
 
 instance Arbitrary Addr where

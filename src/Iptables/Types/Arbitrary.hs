@@ -145,8 +145,8 @@ instance Arbitrary Policy where
     arbitrary = elements [ACCEPT, DROP]
 
 instance Arbitrary Counters where
-    arbitrary = Counters <$> arbitrary
-                         <*> arbitrary
+    arbitrary = Counters <$> choose (0,100000)
+                         <*> choose (0,10000000)
 
 instance Arbitrary RejectType where
     arbitrary = elements [ RTNetUnreachable

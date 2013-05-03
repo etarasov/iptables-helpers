@@ -7,6 +7,7 @@ import Data.List
 import Data.Set (toList)
 import Data.Word
 import Iptables.Types
+import Safe
 
 printIptables :: Iptables -> String
 printIptables (Iptables f n m r) =
@@ -224,5 +225,10 @@ printComment com =
                                                     else onlyOneByteChars xs
     in
     if onlyOneByteChars com
-        then com
-        else "'" ++ (map (\a -> if a == ' ' then '_' else a) com) ++ "'"
+        then "\"" ++ com ++ "\""
+        else 
+            let com' = if headMay com == Just '\'' then com
+                                                   else "'" ++ com ++ "'"
+                com'' = if null (filter (== ' ') com') then com'
+                                                      else (map (\a -> if a == ' ' then '_' else a) com')
+            in com''

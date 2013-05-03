@@ -181,7 +181,7 @@ parseIptables = runParser iptables [] "input" . removeComments
                 "state" -> return $ OModule ModState
                 "physdev" -> return $ OModule ModPhysDev
                 "comment" -> return $ OModule ModComment
-                a -> fail $ "unknown module: " ++ a
+                a -> return $ OModule $ ModOther a
 
         oSrcPort = try $ do
             bool_ <- option True (char '!' >> char ' ' >> return False)

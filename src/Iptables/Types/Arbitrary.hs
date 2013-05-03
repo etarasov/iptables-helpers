@@ -41,7 +41,7 @@ inputChain = Chain <$> pure "INPUT"
                    <*> arbitrary
                    <*> arbitrary
                    <*> do
-                        rulesNum <- choose (2,20)
+                        rulesNum <- choose (0,20)
                         vectorOf rulesNum filterRule
 
 forwardChain :: Gen Chain
@@ -49,7 +49,7 @@ forwardChain = Chain <$> pure "FORWARD"
                      <*> arbitrary
                      <*> arbitrary
                      <*> do
-                        rulesNum <- choose (2,10)
+                        rulesNum <- choose (0,10)
                         vectorOf rulesNum filterRule
 
 outputFilterChain :: Gen Chain
@@ -57,7 +57,7 @@ outputFilterChain = Chain <$> pure "OUTPUT"
                           <*> arbitrary
                           <*> arbitrary
                           <*> do
-                            rulesNum <- choose (2,20)
+                            rulesNum <- choose (0,20)
                             vectorOf rulesNum filterRule
 
 preroutingChain :: Gen Chain
@@ -86,7 +86,7 @@ outputNatChain = Chain <$> pure "OUTPUT"
 
 userFilterChain :: Gen Chain
 userFilterChain = do
-    nameLen <- choose (4,10)
+    nameLen <- choose (1,10)
     name <- vectorOf nameLen $ elements $ ['a'..'z']
                                         ++ ['A'..'Z']
                                         ++ ['0'..'9']
@@ -99,7 +99,7 @@ userFilterChain = do
 
 userNatChain :: Gen Chain
 userNatChain = do
-    nameLen <- choose (3,10)
+    nameLen <- choose (1,10)
     name <- vectorOf nameLen $ elements $ ['a'..'z']
                                         ++ ['A'..'Z']
                                         ++ ['0'..'9']
@@ -120,7 +120,7 @@ filterRule = do
                     ]
     Rule <$> arbitrary
          <*> do
-            optNum <- choose (1,3)
+            optNum <- choose (0,3)
             vectorOf optNum arbitrary
          <*> pure target
         
@@ -137,7 +137,7 @@ natRule = do
                     ]
     Rule <$> arbitrary
          <*> do
-            optNum <- choose (1,3)
+            optNum <- choose (0,3)
             vectorOf optNum arbitrary
          <*> pure target
 

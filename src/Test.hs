@@ -9,4 +9,4 @@ import Test.QuickCheck
 main :: IO ()
 main = do
     testData <- sample' (arbitrary :: Gen Iptables)
-    putStrLn $ printIptables $ testData !! 6
+    putStr $ printIptables $ testData !! 6

@@ -10,37 +10,33 @@ import Iptables.Types
 
 printIptables :: Iptables -> String
 printIptables (Iptables f n m r) =
-    printTable "Filter" f
-    ++ printTable "Nat" n
-    ++ printTable "Mangle" m
-    ++ printTable "Raw" r
+    (if null f then "" else printTable "filter" f)
+    ++ (if null n then "" else printTable "nat" n)
+    ++ (if null m then "" else printTable "mangle" m)
+    ++ (if null r then "" else printTable "raw" r)
     where
         printTable :: String -> [Chain] -> String
         printTable tableName chains =
-            "Table " ++ tableName ++ "\n" ++ unlines (map printChain chains)
+            "*" ++ tableName ++ "\n"
+            ++ unlines (map printChainCaption chains)
+            ++ concat (map printChain chains)
+            ++ "COMMIT\n"
 
-{-
-printIptables (t:ts) =
-    let (tableName, chains) = case t of
-            TableFilter chs -> ("Filter",chs)
-            TableNat chs -> ("Nat", chs)
-            TableMangle chs -> ("Mangle", chs)
-    in "Table " ++ tableName ++ "\n" ++ (unlines $ map printChain chains)
-       ++ printIptables ts
-       -}
+        printChainCaption :: Chain -> String
+        printChainCaption (Chain name policy counters _) =
+            ":" ++ name ++ " "
+            ++ printPolicy policy ++ " "
+            ++ printCounters counters
+
+        printPolicy :: Policy -> String
+        printPolicy p = case p of
+            ACCEPT -> "ACCEPT"
+            DROP -> "DROP"
+            PUNDEFINED -> "-"
 
 printChain :: Chain -> String
-printChain (Chain name policy counters rules) =
-    "Chain: " ++ name
-    ++ " ; Policy: "
-    ++ printPolicy policy
-    ++ " counters: " ++ printCounters counters ++ "\n"
-    ++ unlines (map printRule $ zip rules [1 ..])
-
-printPolicy :: Policy -> String
-printPolicy ACCEPT = "ACCEPT"
-printPolicy DROP = "DROP"
-printPolicy PUNDEFINED = "UNDEFINED"
+printChain (Chain name _ _ rules) =
+    unlines (map (printRule name) rules)
 
 printCounters :: Counters -> String
 printCounters (Counters a b) = "[" ++ show a ++ ":" ++ show b ++ "]"
@@ -50,9 +46,10 @@ printRuleForRun (Rule _ ruleOpts target) =
     unwords (map printOption ruleOpts) ++ " "
     ++ printTarget target
 
-printRule :: (Rule, Int) -> String
-printRule (Rule _ ruleOpts target, lineNum) =
-    show lineNum ++ ". "
+printRule :: String -> Rule -> String
+printRule chainName (Rule counters ruleOpts target) =
+    printCounters counters ++ " "
+    ++ "-A " ++ chainName ++ " "
     ++ unwords (map printOption ruleOpts) ++ " "
     ++ printTarget target
 

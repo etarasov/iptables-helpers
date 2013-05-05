@@ -133,7 +133,7 @@ natRule = do
                     , TDNat <$> arbitrary <*> arbitrary <*> arbitrary
                     , TMasquerade <$> arbitrary <*> arbitrary
                     , TRedirect <$> arbitrary <*> arbitrary
-                    , TUChain <$> (listOf $ elements $ ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'])
+                    , TUChain <$> (listOf1 $ elements $ ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'])
                     ]
     Rule <$> arbitrary
          <*> do

@@ -116,7 +116,7 @@ filterRule = do
                     , return TDrop
                     , TReject <$> arbitrary
                     , return TReturn
-                    , TUChain <$> (listOf $ elements $ ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'])
+                    , TUChain <$> (listOf1 $ elements $ ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'])
                     ]
     Rule <$> arbitrary
          <*> do

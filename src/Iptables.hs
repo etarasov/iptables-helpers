@@ -227,6 +227,12 @@ isNatType chainType table chain =
     let chainType' = guessNatChainType chain table
     in chainType == chainType'
 
+sortIptables :: Iptables -> Iptables
+sortIptables (Iptables filter nat mangle raw) = Iptables (sortFilterTable filter)
+                                                       (sortNatTable nat)
+                                                       (sortMangleTable mangle)
+                                                       raw
+
 sortFilterTable :: [Chain] -> [Chain]
 sortFilterTable table =
     let userChains = filter (not . isFilterBuiltinChain . cName) table

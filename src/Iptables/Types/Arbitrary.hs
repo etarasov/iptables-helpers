@@ -2,26 +2,28 @@ module Iptables.Types.Arbitrary where
 
 import Control.Applicative
 import Data.Bits
-import Data.Set
+import qualified Data.Set as Set
 import Data.Word
 import Iptables.Types
 import Test.QuickCheck
 
 instance Arbitrary Iptables where
     arbitrary = do
-        inputChain' <- inputChain
-        forwardChain' <- forwardChain
-        outputFilterChain' <- outputFilterChain
-
         userFilterChainsNum <- choose (0,4)
         userFilterChains <- vectorOf userFilterChainsNum userFilterChain
+        let userFilterChainNames = map cName userFilterChains
 
-        preroutingChain' <- preroutingChain
-        postroutingChain' <- postroutingChain
-        outputNatChain' <- outputNatChain
+        inputChain' <- inputChain userFilterChainNames
+        forwardChain' <- forwardChain userFilterChainNames
+        outputFilterChain' <- outputFilterChain userFilterChainNames
 
         userNatChainsNum <- choose (0,4)
         userNatChains <- vectorOf userNatChainsNum userNatChain
+        let userNatChainNames = map cName userNatChains
+
+        preroutingChain' <- preroutingChain userNatChainNames
+        postroutingChain' <- postroutingChain userNatChainNames
+        outputNatChain' <- outputNatChain userNatChainNames
 
         return $ Iptables ( [ inputChain'
                             , forwardChain'
@@ -36,53 +38,53 @@ instance Arbitrary Iptables where
                           []
                           []
 
-inputChain :: Gen Chain
-inputChain = Chain <$> pure "INPUT"
-                   <*> arbitrary
-                   <*> arbitrary
-                   <*> do
-                        rulesNum <- choose (0,20)
-                        vectorOf rulesNum filterRule
+inputChain :: [String] -> Gen Chain
+inputChain userChains = Chain <$> pure "INPUT"
+                              <*> arbitrary
+                              <*> arbitrary
+                              <*> do
+                                   rulesNum <- choose (0,20)
+                                   vectorOf rulesNum $ filterRule userChains
 
-forwardChain :: Gen Chain
-forwardChain = Chain <$> pure "FORWARD"
-                     <*> arbitrary
-                     <*> arbitrary
-                     <*> do
-                        rulesNum <- choose (0,10)
-                        vectorOf rulesNum filterRule
+forwardChain :: [String] -> Gen Chain
+forwardChain userChains = Chain <$> pure "FORWARD"
+                                 <*> arbitrary
+                                 <*> arbitrary
+                                 <*> do
+                                    rulesNum <- choose (0,10)
+                                    vectorOf rulesNum $ filterRule userChains
 
-outputFilterChain :: Gen Chain
-outputFilterChain = Chain <$> pure "OUTPUT"
-                          <*> arbitrary
-                          <*> arbitrary
-                          <*> do
-                            rulesNum <- choose (0,20)
-                            vectorOf rulesNum filterRule
+outputFilterChain :: [String] -> Gen Chain
+outputFilterChain userChains = Chain <$> pure "OUTPUT"
+                                      <*> arbitrary
+                                      <*> arbitrary
+                                      <*> do
+                                        rulesNum <- choose (0,20)
+                                        vectorOf rulesNum $ filterRule userChains
 
-preroutingChain :: Gen Chain
-preroutingChain = Chain <$> pure "PREROUTING"
-                        <*> arbitrary
-                        <*> arbitrary
-                        <*> do
-                            rulesNum <- choose (0,3)
-                            vectorOf rulesNum natRule
+preroutingChain :: [String] -> Gen Chain
+preroutingChain userChains = Chain <$> pure "PREROUTING"
+                                    <*> arbitrary
+                                    <*> arbitrary
+                                    <*> do
+                                        rulesNum <- choose (0,3)
+                                        vectorOf rulesNum $ natRule userChains
 
-postroutingChain :: Gen Chain
-postroutingChain = Chain <$> pure "POSTROUTING"
-                         <*> arbitrary
-                         <*> arbitrary
-                         <*> do
-                            rulesNum <- choose (0,3)
-                            vectorOf rulesNum natRule
+postroutingChain :: [String] -> Gen Chain
+postroutingChain userChains = Chain <$> pure "POSTROUTING"
+                                     <*> arbitrary
+                                     <*> arbitrary
+                                     <*> do
+                                        rulesNum <- choose (0,3)
+                                        vectorOf rulesNum $ natRule userChains
 
-outputNatChain :: Gen Chain
-outputNatChain = Chain <$> pure "OUTPUT"
-                       <*> arbitrary
-                       <*> arbitrary
-                       <*> do
-                            rulesNum <- choose (0,1)
-                            vectorOf rulesNum natRule
+outputNatChain :: [String] -> Gen Chain
+outputNatChain userChains = Chain <$> pure "OUTPUT"
+                                   <*> arbitrary
+                                   <*> arbitrary
+                                   <*> do
+                                        rulesNum <- choose (0,1)
+                                        vectorOf rulesNum $ natRule userChains
 
 userFilterChain :: Gen Chain
 userFilterChain = do
@@ -95,7 +97,7 @@ userFilterChain = do
           <*> arbitrary
           <*> do
             rulesNum <- choose (0,10)
-            vectorOf rulesNum filterRule
+            vectorOf rulesNum $ filterRule [name]
 
 userNatChain :: Gen Chain
 userNatChain = do
@@ -108,33 +110,35 @@ userNatChain = do
           <*> arbitrary
           <*> do
             rulesNum <- choose (0,4)
-            vectorOf rulesNum natRule
+            vectorOf rulesNum $ natRule [name]
 
-filterRule :: Gen Rule
-filterRule = do
-    target <- oneof [ return TAccept
-                    , return TDrop
-                    , TReject <$> arbitrary
-                    , return TReturn
-                    , TUChain <$> (listOf1 $ elements $ ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'])
-                    ]
+filterRule :: [String] -> Gen Rule
+filterRule userChains = do
+    target <- oneof $ [ return TAccept
+                      , return TDrop
+                      , TReject <$> arbitrary
+                      , return TReturn
+                      ]
+                      ++ if null userChains then []
+                            else [ TUChain <$> elements userChains]
     Rule <$> arbitrary
          <*> do
             optNum <- choose (0,3)
             vectorOf optNum arbitrary
          <*> pure target
         
-natRule :: Gen Rule
-natRule = do
-    target <- oneof [ return TAccept
-                    , return TDrop
-                    , return TReturn
-                    , TSNat <$> arbitrary <*> arbitrary <*> arbitrary
-                    , TDNat <$> arbitrary <*> arbitrary <*> arbitrary
-                    , TMasquerade <$> arbitrary <*> arbitrary
-                    , TRedirect <$> arbitrary <*> arbitrary
-                    , TUChain <$> (listOf1 $ elements $ ['a'..'z'] ++ ['A'..'Z'] ++ ['0'..'9'])
-                    ]
+natRule :: [String] -> Gen Rule
+natRule userChains = do
+    target <- oneof $ [ return TAccept
+                      , return TDrop
+                      , return TReturn
+                      , TSNat <$> arbitrary <*> arbitrary <*> arbitrary
+                      , TDNat <$> arbitrary <*> arbitrary <*> arbitrary
+                      , TMasquerade <$> arbitrary <*> arbitrary
+                      , TRedirect <$> arbitrary <*> arbitrary
+                      ]
+                      ++ if null userChains then []
+                          else [TUChain <$> elements userChains]
     Rule <$> arbitrary
          <*> do
             optNum <- choose (0,3)
@@ -197,7 +201,7 @@ instance Arbitrary RuleOption where
               , ODest <$> arbitrary <*> arbitrary
               , OInInt <$> arbitrary <*> arbitrary
               , OOutInt <$> arbitrary <*> arbitrary
-              , OState <$> (vectorOf 3 arbitrary >>= return . fromList )
+              , OState <$> (vectorOf 3 arbitrary >>= return . Set.fromList )
               , OSourcePort <$> arbitrary <*> arbitrary
               , ODestPort <$> arbitrary <*> arbitrary
               , OModule <$> arbitrary

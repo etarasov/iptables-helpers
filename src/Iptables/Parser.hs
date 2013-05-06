@@ -240,34 +240,34 @@ parseIptables = runParser iptables [] "input" . removeComments
 
     ruleTarget :: GenParser Char [Chain] RuleTarget
     ruleTarget =
-        choice [rAccept, rDrop, rMasquerade, rRedirect, rReject, rSNat, rDNat, rUChain, rUnknown]
+        choice [tAccept, tDrop, tMasquerade, tRedirect, tReject, tSNat, tDNat, tReturn, tUChain, tUnknown]
         where
-        rAccept = do
+        tAccept = do
             try $ string "ACCEPT"
             return TAccept
 
-        rDrop = do
+        tDrop = do
             try $ string "DROP"
             return TDrop
 
-        rMasquerade = do
+        tMasquerade = do
             try $ string "MASQUERADE"
             ports <- option NatPortDefault (try (string " --to-ports ") >> natPortParser)
             rand <- option False (try (char ' ' >> string "--random") >> return True)
             return $ TMasquerade ports rand
 
-        rRedirect = do
+        tRedirect = do
             try $ string "REDIRECT"
             ports <- option NatPortDefault (try (string " --to-ports ") >> natPortParser)
             rand <- option False (try (char ' ' >> string "--random") >> return True)
             return $ TRedirect ports rand
 
-        rReject = do
+        tReject = do
             try $ string "REJECT"
             rejectWith <- option RTPortUnreachable (try (string " --reject-with ") >> rejectTypeParser)
             return $ TReject rejectWith
 
-        rSNat = try $ do
+        tSNat = try $ do
             string "SNAT"
             char ' '
             string "--to-source"
@@ -277,7 +277,7 @@ parseIptables = runParser iptables [] "input" . removeComments
             persist <- option False (try (char ' ' >> string "--persistent") >> return True)
             return $ TSNat addr rand persist
 
-        rDNat = try $ do
+        tDNat = try $ do
             string "DNAT"
             char ' '
             string "--to-destination"
@@ -287,14 +287,18 @@ parseIptables = runParser iptables [] "input" . removeComments
             persist <- option False (try (char ' ' >> string "--persistent") >> return True)
             return $ TDNat addr rand persist
 
-        rUChain = try $ do
+        tReturn = do
+            try $ string "RETURN"
+            return TReturn
+
+        tUChain = try $ do
             chainName <- chainNameParser
             chains_ <- getState
             when (not $ chainName `elem` map cName chains_) $
                 fail $ chainName ++ " is not name of real chain"
             return $ TUChain chainName
 
-        rUnknown = do
+        tUnknown = do
             targetName <- chainNameParser
             opts <- option [] (char ' ' >> fmap words (many $ noneOf "\n"))
             return $ TUnknown targetName opts

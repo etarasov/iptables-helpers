@@ -77,7 +77,9 @@ main = do
 
 tryToParsePrint :: Iptables -> Result
 tryToParsePrint a = case parseIptables $ printIptables $ sortIptables a of
-    Left err -> MkResult (Just False) True (show err) False False [] []
+    Left err -> MkResult (Just False) True
+                                      (show err ++ "\n" ++ printIptables (sortIptables a))
+                                      False False [] []
     Right res ->
         let a' = sortIptables a
             res' = sortIptables res

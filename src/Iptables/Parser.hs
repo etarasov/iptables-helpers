@@ -233,8 +233,11 @@ parseIptables = runParser iptables [] "input" . removeComments
             ame <- many1 (alphaNum <|> char '-')
             when (oN:ame == "-j") $
                 fail "Option list is over"
-            -- Option parameters - all words before next option
-            oParams <- fmap words $ manyTill anyChar (try $ lookAhead $ string " -")
+            -- Option parameters - all words before next option or eol
+            oParams <- fmap words $ manyTill anyChar ( try (lookAhead $ string " -")
+                                                     <|> try (lookAhead $ string "\n")
+                                                     <|> try (lookAhead $ string " !")
+                                                     )
             char ' '
             return $ OUnknown (oN:ame) bool_ oParams
 

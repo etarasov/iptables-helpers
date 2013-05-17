@@ -89,7 +89,7 @@ data RuleOption = OProtocol Bool Protocol
                 | OModule Module
                 | OLimit Bool Limit
                 | OLimitBurst Int
-                | OMacSource Bool String
+                | OMacSource Bool MacAddr
                 | OMark Int Int
                 | OPort Bool Port
                 | OUidOwner Bool Int
@@ -171,3 +171,6 @@ data NatChainType = NatUnknownChain
                   | NatDNatChain
                   | NatSNatChain
                   deriving (Show, Eq, Ord)
+
+data MacAddr = MacAddr Word8 Word8 Word8 Word8 Word8 Word8
+             deriving (Show, Eq, Ord)

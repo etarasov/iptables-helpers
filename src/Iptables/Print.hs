@@ -7,6 +7,7 @@ import Data.List
 import Data.Set (toList)
 import Data.Word
 import Iptables.Types
+import Numeric
 import Safe
 
 printIptables :: Iptables -> String
@@ -61,29 +62,11 @@ printOption opt = case opt of
     (ODest b addr) -> unwords $ printInv b ++ ["-d"] ++ [printAddress addr]
     (OInInt b int) -> unwords $ printInv b ++ ["-i"] ++ [printInterface int]
     (OOutInt b int) -> unwords $ printInv b ++ ["-o"] ++ [printInterface int]
-    (OFragment b) -> undefined b
     (OSourcePort b p) -> unwords $ printInv b ++ ["--sport"] ++ [printPort p]
     (ODestPort b p) -> unwords $ printInv b ++ ["--dport"] ++ [printPort p]
-    (OTcpFlags b fs) -> undefined b fs
-    (OSyn b) -> undefined b
-    (OTcpOption b o) -> undefined b o
-    (OIcmpType b t) -> undefined b t
     (OModule m) -> unwords $ "-m" : [printModule m]
-    (OLimit b l) -> undefined b l
-    (OLimitBurst b) -> undefined b
-    (OMacSource b m) -> undefined b m
-    (OMark a b) -> undefined a b
-    (OPort b p) -> undefined b p
-    (OUidOwner b u) -> undefined b u
-    (OGidOwner b g) -> undefined b g
-    (OSidOwner b s) -> undefined b s
+    (OMacSource b m) -> unwords $ printInv b ++ ["--mac-source"] ++ [printMacAddress m]
     (OState s) -> unwords $ "--state" : [printStates $ toList s]
-    (OTos t) -> undefined t
-    (OTtl t) -> undefined t
-    (OPhysDevIn b int) -> undefined b int
-    (OPhysDevOut b int) -> undefined b int
-    (OPhysDevIsIn b) -> undefined b
-    (OPhysDevIsOut b) -> undefined b
     (OPhysDevIsBridged b) -> unwords $ printInv b ++ ["--physdev-is-bridged"]
     (OComment c) -> "--comment" ++ " " ++ printComment c
     (OUnknown oName b opts) -> unwords $ printInv b ++ [oName] ++ opts
@@ -144,6 +127,18 @@ printIp ip =
         oct3 = show $ shiftR (shiftL ip 16) 24
         oct4 = show $ shiftR (shiftL ip 24) 24
     in oct1 ++ "." ++ oct2 ++ "." ++ oct3 ++ "." ++ oct4
+
+printMacAddress :: MacAddr -> String
+printMacAddress (MacAddr a b c d e f) = showHex2 a $ showChar ':'
+                                      $ showHex2 b $ showChar ':'
+                                      $ showHex2 c $ showChar ':'
+                                      $ showHex2 d $ showChar ':'
+                                      $ showHex2 e $ showChar ':'
+                                      $ showHex2 f $ ""
+    where
+        showHex2 :: Word8 -> ShowS
+        showHex2 a = if a < 16 then showChar '0' . showHex a
+                               else showHex a
 
 printInterface :: Interface -> String
 printInterface (Interface str) = str

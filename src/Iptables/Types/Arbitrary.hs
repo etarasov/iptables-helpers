@@ -214,6 +214,7 @@ instance Arbitrary RuleOption where
               --, OPhysDevIn <$> arbitrary <*> arbitrary
               --, OPhysDevOut <$> arbitrary <*> arbitrary
               , OComment <$> pure "test comment"
+              , OMacSource <$> arbitrary <*> arbitrary
               , OUnknown <$> pure "--unknown" <*> arbitrary <*> pure ["opt"]
               ]
 
@@ -245,3 +246,11 @@ instance Arbitrary Module where
                  , ModComment
                  , ModOther "unknown"
                  ]
+
+instance Arbitrary MacAddr where
+    arbitrary = MacAddr <$> arbitrary
+                        <*> arbitrary
+                        <*> arbitrary
+                        <*> arbitrary
+                        <*> arbitrary
+                        <*> arbitrary

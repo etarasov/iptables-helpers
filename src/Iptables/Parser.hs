@@ -7,6 +7,7 @@ import Control.Monad.Error
 import Data.Bits
 import Data.Set (fromList)
 import Data.Word
+import Numeric
 import Safe
 import Text.ParserCombinators.Parsec
 
@@ -128,14 +129,14 @@ parseIptables = runParser iptables [] "input" . removeComments
     ruleOption :: GenParser Char [Chain] RuleOption
     ruleOption =
         choice [ oProtocol, oSource, oDest, oInput, oOutput, oModule, oSrcPort, oDstPort, oState
-               , oPhysDevIsBridged, oComment, oUnknown]
+               , oPhysDevIsBridged, oComment, oMacSource, oUnknown]
         where
         oProtocol = try $ do
             bool_ <- option True (char '!' >> char ' ' >> return False)
             try (string "-p") <|> string "--protocol"
             char ' '
             protocol <- many1 (letter <|> char '-')
-            char ' '
+            many $ char ' '
             return $ OProtocol bool_ protocol
 
         oSource = try $ do
@@ -143,7 +144,7 @@ parseIptables = runParser iptables [] "input" . removeComments
             try (string "-s") <|> try (string "--src") <|> string "--source"
             char ' '
             address <- ipAddressParser
-            char ' '
+            many $ char ' '
             return $ OSource bool_ address
 
         oDest = try $ do
@@ -151,7 +152,7 @@ parseIptables = runParser iptables [] "input" . removeComments
             try (string "-d") <|> try (string "--dst") <|> string "--destination"
             char ' '
             address <- ipAddressParser
-            char ' '
+            many $ char ' '
             return $ ODest bool_ address
 
         oInput = try $ do
@@ -159,7 +160,7 @@ parseIptables = runParser iptables [] "input" . removeComments
             try (string "-i") <|> string "--in-interface"
             char ' '
             interf <- interfaceParser
-            char ' '
+            many $ char ' '
             return $ OInInt bool_ $ Interface interf
 
         oOutput = try $ do
@@ -167,14 +168,14 @@ parseIptables = runParser iptables [] "input" . removeComments
             try (string "-o") <|> string "--out-interface"
             char ' '
             interf <- interfaceParser
-            char ' '
+            many $ char ' '
             return $ OOutInt bool_ $ Interface interf
 
         oModule = do
             try (try (string "-m") <|> string "--match")
             char ' '
             mod_ <- many1 alphaNum
-            char ' '
+            many $ char ' '
             case mod_ of
                 "tcp" -> return $ OModule ModTcp
                 "udp" -> return $ OModule ModUdp
@@ -188,7 +189,7 @@ parseIptables = runParser iptables [] "input" . removeComments
             try (string "--sport") <|> string "--source-port"
             char ' '
             port <- ipPortParser
-            char ' '
+            many $ char ' '
             return $ OSourcePort bool_ port
 
         oDstPort = try $ do
@@ -196,7 +197,7 @@ parseIptables = runParser iptables [] "input" . removeComments
             try (string "--dport") <|> string "--destination-port"
             char ' '
             port <- ipPortParser
-            char ' '
+            many $ char ' '
             return $ ODestPort bool_ port
 
         oState = try $ do
@@ -211,13 +212,13 @@ parseIptables = runParser iptables [] "input" . removeComments
                 parseState "UNTRACKED" = return CStUntracked
                 parseState a = fail $ "There is no state " ++ a
             states <- mapM parseState statesS
-            char ' '
+            many $ char ' '
             return $ OState $ fromList states
 
         oPhysDevIsBridged = try $ do
             bool_ <- option True (char '!' >> char ' ' >> return False)
             string "--physdev-is-bridged"
-            char ' '
+            many $ many $ char ' '
             return $ OPhysDevIsBridged bool_
 
         oComment = do
@@ -226,6 +227,16 @@ parseIptables = runParser iptables [] "input" . removeComments
             comment <- commentParser
             many $ char ' '
             return $ OComment comment
+
+        oMacSource = do
+            positive <- try $ do
+                bool_ <- option True (char '!' >> char ' ' >> return False)
+                string "--mac-source"
+                return bool_
+            char ' '
+            address <- macAddressParser
+            many $ char ' '
+            return $ OMacSource positive address
 
         oUnknown = try $ do
             bool_ <- option True (char '!' >> char ' ' >> return False)
@@ -238,7 +249,7 @@ parseIptables = runParser iptables [] "input" . removeComments
                                                      <|> try (lookAhead $ string "\n")
                                                      <|> try (lookAhead $ string " !")
                                                      )
-            char ' '
+            many $ char ' '
             return $ OUnknown (oN:ame) bool_ oParams
 
     ruleTarget :: GenParser Char [Chain] RuleTarget
@@ -347,6 +358,33 @@ ipAddressParser :: GenParser Char st Addr
 ipAddressParser = try (ipMask <?> "ip address with mask")
                 <|> try (ipPref <?> "ip address with prefix")
                 <|> ((AddrIP <$> ipAddr) <?> "ip address")
+
+macAddressParser :: GenParser Char st MacAddr
+macAddressParser = do
+    a1 <- hexDigit
+    a2 <- hexDigit
+    let a = fst $ head $ readHex $ a1 : a2 : []
+    char ':'
+    b1 <- hexDigit
+    b2 <- hexDigit
+    let b = fst $ head $ readHex $ b1 : b2 : []
+    char ':'
+    c1 <- hexDigit
+    c2 <- hexDigit
+    let c = fst $ head $ readHex $ c1 : c2 : []
+    char ':'
+    d1 <- hexDigit
+    d2 <- hexDigit
+    let d = fst $ head $ readHex $ d1 : d2 : []
+    char ':'
+    e1 <- hexDigit
+    e2 <- hexDigit
+    let e = fst $ head $ readHex $ e1 : e2 : []
+    char ':'
+    f1 <- hexDigit
+    f2 <- hexDigit
+    let f = fst $ head $ readHex $ f1 : f2 : []
+    return $ MacAddr a b c d e f 
 
 checkPort :: Int -> GenParser Char st ()
 checkPort a =

@@ -10,7 +10,9 @@ import Test.QuickCheck
 instance Arbitrary Iptables where
     arbitrary = do
         userFilterChainsNum <- choose (0,4)
-        userFilterChains <- vectorOf userFilterChainsNum userFilterChain
+        let uniqueChains :: [Chain] -> Bool
+            uniqueChains chains = length (map cName chains) == Set.size (Set.fromList (map cName chains))
+        userFilterChains <- suchThat (vectorOf userFilterChainsNum userFilterChain) uniqueChains
         let userFilterChainNames = map cName userFilterChains
 
         inputChain' <- inputChain userFilterChainNames
@@ -18,7 +20,7 @@ instance Arbitrary Iptables where
         outputFilterChain' <- outputFilterChain userFilterChainNames
 
         userNatChainsNum <- choose (0,4)
-        userNatChains <- vectorOf userNatChainsNum userNatChain
+        userNatChains <- suchThat (vectorOf userNatChainsNum userNatChain) uniqueChains
         let userNatChainNames = map cName userNatChains
 
         preroutingChain' <- preroutingChain userNatChainNames

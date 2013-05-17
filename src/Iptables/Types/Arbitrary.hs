@@ -180,7 +180,10 @@ ipMask = do
 instance Arbitrary NatAddress where
     arbitrary =
         oneof [ NAIp <$> ipAddress <*> ipAddress
-              , NAIpPort <$> ipAddress <*> ipAddress <*> choose (1,65535) <*> choose (1,65535)
+              , do
+                    port1 <- choose (1,65535)
+                    port2 <- choose (port1, 65535)
+                    NAIpPort <$> ipAddress <*> ipAddress <*> pure port1 <*> pure port2
               ]
 
 instance Arbitrary NatPort where

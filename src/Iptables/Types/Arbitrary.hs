@@ -187,7 +187,7 @@ instance Arbitrary NatPort where
     arbitrary =
         oneof [ do
                 port1 <- choose (1,65535)
-                port2 <- oneof [ choose (port1, 65535 - port1)
+                port2 <- oneof [ choose (port1, 65535)
                                , return port1
                                ]
                 return $ NatPort port1 port2

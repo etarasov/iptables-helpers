@@ -1,15 +1,16 @@
-Name:                iptables-helpers
-Version:             0.4.2
-Synopsis:            Static checking of iptables rules
-License:             BSD3
-License-file:        LICENSE
-Author:              Evgeny Tarasov
-Maintainer:          etarasov.ekb@gmail.com
-Category:            Text
-Build-type:          Simple
-
-Cabal-version:       >=1.2
-
+Name:               iptables-helpers
+Version:            0.5.0
+Synopsis:           iptables rules parser/printer library
+License:            BSD3
+License-file:       LICENSE
+Author:             Evgeny Tarasov
+Maintainer:         etarasov.ekb@gmail.com
+Category:           Text
+Build-type:         Simple
+Cabal-version:      >=1.6
+Source-repository   head
+    type:           git
+    location:       https://github.com/etarasov/iptables-helpers.git
 
 Library
     Exposed-modules:

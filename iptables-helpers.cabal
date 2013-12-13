@@ -7,8 +7,9 @@ Author:             Evgeny Tarasov
 Maintainer:         etarasov.ekb@gmail.com
 Category:           Text
 Build-type:         Simple
-Cabal-version:      >=1.6
-Source-repository   head
+Cabal-Version:      >=1.8
+
+Source-Repository head
     type:           git
     location:       https://github.com/etarasov/iptables-helpers.git
 
@@ -33,11 +34,13 @@ Library
 
     Ghc-options:    -Wall -fno-warn-unused-do-bind
 
-executable iptables-helpers-test
-    main-is:        Test.hs
+Executable iptables-helpers-test
+    HS-Source-Dirs: test
+    Main-Is:        Test.hs
     Build-depends:
                     base >= 4 && < 5,
                     QuickCheck >= 2.5 && < 2.6,
-                    syb >= 0.3 && < 0.4
-    HS-Source-Dirs: src
+                    syb >= 0.3 && < 0.4,
+                    containers >= 0.4 && < 0.6,
+                    iptables-helpers
     ghc-options:    -Wall -fno-warn-unused-do-bind

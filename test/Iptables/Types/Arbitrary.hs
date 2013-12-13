@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Iptables.Types.Arbitrary where
 
 import Control.Applicative
@@ -128,7 +129,7 @@ filterRule userChains = do
             optNum <- choose (0,3)
             vectorOf optNum arbitrary
          <*> pure target
-        
+
 natRule :: [String] -> Gen Rule
 natRule userChains = do
     target <- oneof $ [ return TAccept

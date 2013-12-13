@@ -137,7 +137,7 @@ chainDiff c1 c2 =
 
 rulesDiff :: [Rule] -> [Rule] -> String
 rulesDiff rs1 rs2 =
-    concat $ zipWith (\ r1 r2 -> 
+    concat $ zipWith (\ r1 r2 ->
         let equal = r1 == r2
         in
         if equal

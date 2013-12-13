@@ -9,7 +9,7 @@ import Iptables
 import Iptables.Parser
 import Iptables.Print
 import Iptables.Types
-import Iptables.Types.Arbitrary
+import Iptables.Types.Arbitrary ()
 import System.Console.GetOpt
 import System.Environment
 import System.Exit

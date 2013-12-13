@@ -1,14 +1,12 @@
-
 module Iptables.Print where
 
-import Codec.Binary.UTF8.String
-import Data.Bits
-import Data.List
-import Data.Set (toList)
-import Data.Word
-import Iptables.Types
-import Numeric
-import Safe
+import           Codec.Binary.UTF8.String
+import           Data.List
+import           Data.Set                 (toList)
+import           Data.Word
+import           Iptables.Types
+import           Numeric
+import           Safe
 
 printIptables :: Iptables -> String
 printIptables (Iptables f n m r) =
@@ -120,13 +118,8 @@ printAddress (AddrIP ip) = printIp ip
 printAddress (AddrMask ip mask) = printIp ip ++ "/" ++ printIp mask
 printAddress (AddrPref ip pref) = printIp ip ++ "/" ++ show pref
 
-printIp :: Word32 -> String
-printIp ip =
-    let oct1 = show $ shiftR ip 24
-        oct2 = show $ shiftR (shiftL ip 8) 24
-        oct3 = show $ shiftR (shiftL ip 16) 24
-        oct4 = show $ shiftR (shiftL ip 24) 24
-    in oct1 ++ "." ++ oct2 ++ "." ++ oct3 ++ "." ++ oct4
+printIp :: IP -> String
+printIp (IP a b c d) = show a ++ "." ++ show b ++ "." ++ show c ++ "." ++ show d
 
 printMacAddress :: MacAddr -> String
 printMacAddress (MacAddr a b c d e f) = showHex2 a $ showChar ':'
@@ -177,12 +170,12 @@ printNatAddr :: NatAddress -> String
 printNatAddr (NAIp ip1 ip2) = printNatIp ip1 ip2
 printNatAddr (NAIpPort ip1 ip2 port1 port2) = printNatIpPort ip1 ip2 port1 port2
 
-printNatIp :: Word32 -> Word32 -> String
+printNatIp :: IP -> IP -> String
 printNatIp ip1 ip2 =
     if ip1 == ip2 then printIp ip1
                   else printIp ip1 ++ "-" ++ printIp ip2
 
-printNatIpPort :: Word32 -> Word32 -> Int -> Int -> String
+printNatIpPort :: IP -> IP -> Int -> Int -> String
 printNatIpPort ip1 ip2 port1 port2 =
     let ipString = if ip1 == ip2 then printIp ip1
                                 else printIp ip1 ++ "-" ++ printIp ip2
@@ -221,7 +214,7 @@ printComment com =
     in
     if onlyOneByteChars com
         then "\"" ++ com ++ "\""
-        else 
+        else
             let com' = if headMay com == Just '\'' then com
                                                    else "'" ++ com ++ "'"
                 com'' = if null (filter (== ' ') com') then com'

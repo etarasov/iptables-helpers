@@ -3,6 +3,7 @@
 # How to Test
 
 ```
+cabal install --only-dependencies --enable-tests
 cabal configure --enable-tests
 cabal build
 cabal test --test-option=--maximum-generated-tests=100

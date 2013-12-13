@@ -1,15 +1,12 @@
-
 module Iptables.Parser where
 
-import Iptables.Types
-import Control.Applicative ((<$>))
-import Control.Monad.Error
-import Data.Bits
-import Data.Set (fromList)
-import Data.Word
-import Numeric
-import Safe
-import Text.ParserCombinators.Parsec
+import           Control.Applicative           ((<$>))
+import           Control.Monad.Error
+import           Data.Set                      (fromList)
+import           Iptables.Types
+import           Numeric
+import           Safe
+import           Text.ParserCombinators.Parsec
 
 removeComments :: String -> String
 removeComments input = unlines $ map removeComment $ lines input
@@ -335,7 +332,7 @@ ipPref = do
         fail "ip prefix >=0 && <= 32"
     return $ AddrPref ip pref
 
-ipAddr :: GenParser Char st Word32
+ipAddr :: GenParser Char st IP
 ipAddr = do
     as <- many1 (digit <?> "")
     let a = read as
@@ -352,7 +349,7 @@ ipAddr = do
     ds <- many1 (digit <?> "")
     let d = read ds
     when (d > 255) $ fail "ip addr octet >= 0 && < 256"
-    return $ shiftL a 24 + shiftL b 16 + shiftL c 8 + d
+    return $ IP a b c d
 
 ipAddressParser :: GenParser Char st Addr
 ipAddressParser = try (ipMask <?> "ip address with mask")
@@ -384,7 +381,7 @@ macAddressParser = do
     f1 <- hexDigit
     f2 <- hexDigit
     let f = fst $ head $ readHex $ f1 : f2 : []
-    return $ MacAddr a b c d e f 
+    return $ MacAddr a b c d e f
 
 checkPort :: Int -> GenParser Char st ()
 checkPort a =

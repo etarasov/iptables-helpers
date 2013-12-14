@@ -155,6 +155,22 @@ instance Arbitrary Counters where
     arbitrary = Counters <$> choose (0,100000)
                          <*> choose (0,10000000)
 
+instance Arbitrary Rule where
+    arbitrary = Rule <$> arbitrary <*> arbitrary <*> arbitrary
+
+instance Arbitrary RuleTarget where
+    arbitrary = oneof [ return TAccept
+                      , return TDrop
+                      , TReject <$> arbitrary
+                      , return TReturn
+                      , TSNat <$> arbitrary <*> arbitrary <*> arbitrary
+                      , TDNat <$> arbitrary <*> arbitrary <*> arbitrary
+                      , TMasquerade <$> arbitrary <*> arbitrary
+                      , TRedirect <$> arbitrary <*> arbitrary
+                      , TUChain <$> arbitrary
+                      , TUnknown <$> arbitrary <*> arbitrary
+                      ]
+
 instance Arbitrary RejectType where
     arbitrary = elements [ RTNetUnreachable
                          , RTHostUnreachable

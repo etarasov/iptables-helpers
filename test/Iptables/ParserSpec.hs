@@ -5,8 +5,8 @@ import           Test.QuickCheck
 
 import           Iptables                 (sortIptables)
 import           Iptables.Parser          (parseIptables)
-import           Iptables.Print           (printIptables)
-import           Iptables.Types           (Iptables)
+-- import           Iptables.Print           (printIptables)
+import           Iptables.Types           (Iptables, prettyIptables)
 import           Iptables.Types.Arbitrary ()
 
 spec :: Spec
@@ -17,6 +17,6 @@ spec = do
 
 checkIptablesParser :: Iptables -> Bool
 checkIptablesParser ast =
-    case parseIptables (printIptables ast) of
+    case parseIptables (prettyIptables ast) of
       Left _  -> False
       Right a -> sortIptables ast == sortIptables a

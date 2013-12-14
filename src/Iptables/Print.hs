@@ -4,9 +4,13 @@ import           Codec.Binary.UTF8.String
 import           Data.List
 import           Data.Set                 (toList)
 import           Data.Word
-import           Iptables.Types
+import           Iptables.Types hiding (printComment)
 import           Numeric
 import           Safe
+
+-- $setup
+-- >>> import Iptables.Types.Arbitrary
+-- >>> import Text.Pretty
 
 printIptables :: Iptables -> String
 printIptables (Iptables f n m r) =
@@ -46,13 +50,21 @@ printRuleForRun (Rule _ ruleOpts target) =
     unwords (map printOption ruleOpts) ++ " "
     ++ printTarget target
 
+-- |
+-- prop> printRule name r == show (prettyRule name r)
 printRule :: String -> Rule -> String
+printRule chainName (Rule counters [] target) =
+    printCounters counters ++ " "
+    ++ "-A " ++ chainName ++ " "
+    ++ printTarget target
 printRule chainName (Rule counters ruleOpts target) =
     printCounters counters ++ " "
     ++ "-A " ++ chainName ++ " "
     ++ unwords (map printOption ruleOpts) ++ " "
     ++ printTarget target
 
+-- |
+-- prop> printOption ro == show (pretty ro)
 printOption :: RuleOption -> String
 printOption opt = case opt of
     (OProtocol b p) -> unwords $ printInv b ++ ["-p"] ++ [p]
@@ -73,6 +85,8 @@ printInv :: Bool -> [String]
 printInv True = []
 printInv False = ["!"]
 
+-- |
+-- prop> printTarget rt == show (pretty rt)
 printTarget :: RuleTarget -> String
 printTarget rt = (++) "-j " $ case rt of
                             TAccept -> "ACCEPT"
@@ -110,17 +124,25 @@ printTarget rt = (++) "-j " $ case rt of
                                         _ -> " --to-ports " ++ printNatPort natPort
                                 in
                                     "REDIRECT" ++ natPortS ++ randS
+                            TUnknown tName [] ->
+                                tName
                             TUnknown tName opts ->
                                 tName ++ " " ++ unwords opts
 
+-- |
+-- prop> printAddress a == show (pretty a)
 printAddress :: Addr -> String
 printAddress (AddrIP ip) = printIp ip
 printAddress (AddrMask ip mask) = printIp ip ++ "/" ++ printIp mask
 printAddress (AddrPref ip pref) = printIp ip ++ "/" ++ show pref
 
+-- |
+-- prop> printIp ip == show (pretty ip)
 printIp :: IP -> String
 printIp (IP a b c d) = show a ++ "." ++ show b ++ "." ++ show c ++ "." ++ show d
 
+-- |
+-- prop> printMacAddress ma == show (pretty ma)
 printMacAddress :: MacAddr -> String
 printMacAddress (MacAddr a b c d e f) = showHex2 a $ showChar ':'
                                       $ showHex2 b $ showChar ':'
@@ -133,13 +155,19 @@ printMacAddress (MacAddr a b c d e f) = showHex2 a $ showChar ':'
         showHex2 a = if a < 16 then showChar '0' . showHex a
                                else showHex a
 
+-- |
+-- prop> printInterface i == show (pretty i)
 printInterface :: Interface -> String
 printInterface (Interface str) = str
 
+-- |
+-- prop> printPort p == show (pretty p)
 printPort :: Port -> String
 printPort (Port ps) = intercalate "," $ map show ps
 printPort (PortRange ps pe) = show ps ++ ":" ++ show pe
 
+-- |
+-- prop> printStates ss == show (pretty ss)
 printStates :: [CState] -> String
 printStates ss = intercalate "," $ map printState ss
     where
@@ -150,6 +178,8 @@ printStates ss = intercalate "," $ map printState ss
             CStRelated -> "RELATED"
             CStUntracked -> "UNTRACKED"
 
+-- |
+-- prop> printModule m == show (pretty m)
 printModule :: Module -> String
 printModule m = case m of
         ModTcp -> "tcp"
@@ -166,10 +196,14 @@ printModule m = case m of
         ModComment -> "comment"
         ModOther s -> s
 
+-- |
+-- prop> printNatAddr na == show (pretty na)
 printNatAddr :: NatAddress -> String
 printNatAddr (NAIp ip1 ip2) = printNatIp ip1 ip2
 printNatAddr (NAIpPort ip1 ip2 port1 port2) = printNatIpPort ip1 ip2 port1 port2
 
+-- |
+-- prop> printNatIp ip1 ip2 == show (prettyNatIp ip1 ip2)
 printNatIp :: IP -> IP -> String
 printNatIp ip1 ip2 =
     if ip1 == ip2 then printIp ip1
@@ -184,6 +218,8 @@ printNatIpPort ip1 ip2 port1 port2 =
     in
         ipString ++ ":" ++ portString
 
+-- |
+-- prop> printNatPort np == show (pretty np)
 printNatPort :: NatPort -> String
 printNatPort NatPortDefault = ""
 printNatPort (NatPort port1 port2) =
@@ -191,6 +227,8 @@ printNatPort (NatPort port1 port2) =
         then show port1
         else show port1 ++ "-" ++ show port2
 
+-- |
+-- prop> printRejectWith rt == show (pretty rt)
 printRejectWith :: RejectType -> String
 printRejectWith rw = case rw of
     RTNetUnreachable -> "icmp-net-unreachable"

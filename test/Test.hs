@@ -7,7 +7,7 @@ import Data.Generics
 import Data.List
 import Iptables
 import Iptables.Parser
-import Iptables.Print
+-- import Iptables.Print
 import Iptables.Types
 import Iptables.Types.Arbitrary ()
 import System.Console.GetOpt

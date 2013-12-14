@@ -5,8 +5,8 @@ import           Test.QuickCheck
 
 import           Iptables                 (sortIptables)
 import           Iptables.Parser          (parseIptables)
--- import           Iptables.Print           (printIptables)
-import           Iptables.Types           (Iptables, prettyIptables)
+import           Iptables.Print           (prettyIptables)
+import           Iptables.Types           (Iptables)
 import           Iptables.Types.Arbitrary ()
 
 spec :: Spec

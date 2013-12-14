@@ -1,213 +1,185 @@
-
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE OverloadedStrings    #-}
 module Iptables.Print where
 
-import Codec.Binary.UTF8.String
-import Data.Bits
-import Data.List
-import Data.Set (toList)
-import Data.Word
-import Iptables.Types
-import Numeric
-import Safe
+import           Codec.Binary.UTF8.String (encodeChar)
+import           Data.Monoid              ((<>))
+import qualified Data.Set                 as Set
+import           Data.Word
+import           Iptables.Types
+import           Numeric                  (showHex)
+import           Safe                     (headMay)
+import           Text.Pretty
 
-printIptables :: Iptables -> String
-printIptables (Iptables f n m r) =
-    (if null f then "" else printTable "filter" f)
-    ++ (if null n then "" else printTable "nat" n)
-    ++ (if null m then "" else printTable "mangle" m)
-    ++ (if null r then "" else printTable "raw" r)
-    where
-        printTable :: String -> [Chain] -> String
-        printTable tableName chains =
-            "*" ++ tableName ++ "\n"
-            ++ unlines (map printChainCaption chains)
-            ++ concat (map printChain chains)
-            ++ "COMMIT\n"
+prettyIptables :: Iptables -> String
+prettyIptables = runPrinterStyle (style {mode = LeftMode}) . pretty
 
-        printChainCaption :: Chain -> String
-        printChainCaption (Chain name policy counters _) =
-            ":" ++ name ++ " "
-            ++ printPolicy policy ++ " "
-            ++ printCounters counters
+instance Pretty Iptables where
+    pretty (Iptables f n m r) =
+          prettyTable "filter" f
+      </> prettyTable "nat" n
+      </> prettyTable "mangle" m
+      </> prettyTable "raw" r
 
-        printPolicy :: Policy -> String
-        printPolicy p = case p of
-            ACCEPT -> "ACCEPT"
-            DROP -> "DROP"
-            PUNDEFINED -> "-"
+prettyTable :: Printer -> [Chain] -> Printer
+prettyTable _ [] = empty
+prettyTable tableName chains =
+    vcat [ "*" <> tableName
+         , vcat (map prettyChainCaption chains)
+         , vcat (map prettyChain chains)
+         , "COMMIT"
+         ]
 
-printChain :: Chain -> String
-printChain (Chain name _ _ rules) =
-    unlines (map (printRule name) rules)
+prettyChainCaption :: Chain -> Printer
+prettyChainCaption (Chain name policy counters _) =
+    ":" <-> string name <+> pretty policy <+> pretty counters
 
-printCounters :: Counters -> String
-printCounters (Counters a b) = "[" ++ show a ++ ":" ++ show b ++ "]"
+prettyChain :: Chain -> Printer
+prettyChain (Chain name _ _ rules) = vcat $ map (prettyRule name) rules
 
-printRuleForRun :: Rule -> String
-printRuleForRun (Rule _ ruleOpts target) =
-    unwords (map printOption ruleOpts) ++ " "
-    ++ printTarget target
+instance Pretty Policy where
+    pretty ACCEPT     = "ACCEPT"
+    pretty DROP       = "DROP"
+    pretty PUNDEFINED = "-"
 
-printRule :: String -> Rule -> String
-printRule chainName (Rule counters ruleOpts target) =
-    printCounters counters ++ " "
-    ++ "-A " ++ chainName ++ " "
-    ++ unwords (map printOption ruleOpts) ++ " "
-    ++ printTarget target
+instance Pretty Counters where
+    pretty (Counters a b) = brackets $ integer a <> ":" <> integer b
 
-printOption :: RuleOption -> String
-printOption opt = case opt of
-    (OProtocol b p) -> unwords $ printInv b ++ ["-p"] ++ [p]
-    (OSource b addr) -> unwords $ printInv b ++ ["-s"] ++ [printAddress addr]
-    (ODest b addr) -> unwords $ printInv b ++ ["-d"] ++ [printAddress addr]
-    (OInInt b int) -> unwords $ printInv b ++ ["-i"] ++ [printInterface int]
-    (OOutInt b int) -> unwords $ printInv b ++ ["-o"] ++ [printInterface int]
-    (OSourcePort b p) -> unwords $ printInv b ++ ["--sport"] ++ [printPort p]
-    (ODestPort b p) -> unwords $ printInv b ++ ["--dport"] ++ [printPort p]
-    (OModule m) -> unwords $ "-m" : [printModule m]
-    (OMacSource b m) -> unwords $ printInv b ++ ["--mac-source"] ++ [printMacAddress m]
-    (OState s) -> unwords $ "--state" : [printStates $ toList s]
-    (OPhysDevIsBridged b) -> unwords $ printInv b ++ ["--physdev-is-bridged"]
-    (OComment c) -> "--comment" ++ " " ++ printComment c
-    (OUnknown oName b opts) -> unwords $ printInv b ++ [oName] ++ opts
+prettyRule :: String -> Rule -> Printer
+prettyRule chainName (Rule counters ruleOpts target) =
+    pretty counters <+> "-A" <+> string chainName <+> hsep (map pretty ruleOpts) <+> pretty target
 
-printInv :: Bool -> [String]
-printInv True = []
-printInv False = ["!"]
+instance Pretty RuleTarget where
+    pretty rt = "-j" <+> prettyRuleTarget rt
 
-printTarget :: RuleTarget -> String
-printTarget rt = (++) "-j " $ case rt of
-                            TAccept -> "ACCEPT"
-                            TDrop -> "DROP"
-                            TReject rw -> "REJECT" ++ " --reject-with " ++ printRejectWith rw
-                            TReturn -> "RETURN"
-                            TUChain chain -> chain
-                            TSNat natAddr rand persist ->
-                                let randS = if rand then " --random"
-                                                    else ""
-                                    persistS = if persist then " --persistent"
-                                                           else ""
-                                in
-                                    "SNAT " ++ "--to-source " ++ printNatAddr natAddr ++ randS ++ persistS
-                            TDNat natAddr rand persist ->
-                                let randS = if rand then " --random"
-                                                    else ""
-                                    persistS = if persist then " --persistent"
-                                                          else ""
-                                in
-                                    "DNAT " ++ "--to-destination " ++ printNatAddr natAddr ++ randS ++ persistS
-                            TMasquerade natPort rand ->
-                                let randS = if rand then " --random"
-                                                    else ""
-                                    natPortS = case natPort of
-                                        NatPortDefault -> ""
-                                        _ -> " --to-ports " ++ printNatPort natPort
-                                in
-                                    "MASQUERADE" ++ natPortS ++ randS
-                            TRedirect natPort rand ->
-                                let randS = if rand then " --random"
-                                                    else ""
-                                    natPortS = case natPort of
-                                        NatPortDefault -> ""
-                                        _ -> " --to-ports " ++ printNatPort natPort
-                                in
-                                    "REDIRECT" ++ natPortS ++ randS
-                            TUnknown tName opts ->
-                                tName ++ " " ++ unwords opts
+prettyRuleTarget :: RuleTarget -> Printer
+prettyRuleTarget TAccept         = "ACCEPT"
+prettyRuleTarget TDrop           = "DROP"
+prettyRuleTarget (TReject rw)    = "REJECT" <+> "--reject-with" <+> pretty rw
+prettyRuleTarget TReturn         = "RETURN"
+prettyRuleTarget (TUChain chain) = string chain
+prettyRuleTarget (TSNat natAddr rand persist) =
+    "SNAT" <+> "--to-source" <+> pretty natAddr <+> randS <+> persistS
+  where randS    = option' rand "--random"
+        persistS = option' persist "--persistent"
+prettyRuleTarget (TDNat natAddr rand persist) =
+    "DNAT" <+> "--to-destination" <+> pretty natAddr <+> randS <+> persistS
+  where randS    = option' rand "--random"
+        persistS = option' persist "--persistent"
+prettyRuleTarget (TMasquerade natPort rand) =
+    "MASQUERADE" <+> natPortS <+> randS
+  where randS    = option' rand "--random"
+        natPortS = case natPort of
+                      NatPortDefault -> empty
+                      _              -> "--to-ports" <+> pretty natPort
+prettyRuleTarget (TRedirect natPort rand) =
+    "REDIRECT" <+> natPortS <+> randS
+  where randS    = option' rand "--random"
+        natPortS = case natPort of
+                      NatPortDefault -> empty
+                      _              -> "--to-ports" <+> pretty natPort
+prettyRuleTarget (TUnknown tName opts) = string tName <+> hsep (map string opts)
 
-printAddress :: Addr -> String
-printAddress (AddrIP ip) = printIp ip
-printAddress (AddrMask ip mask) = printIp ip ++ "/" ++ printIp mask
-printAddress (AddrPref ip pref) = printIp ip ++ "/" ++ show pref
+option' :: Bool -> Printer -> Printer
+option' True doc = doc
+option' False _  = empty
 
-printIp :: Word32 -> String
-printIp ip =
-    let oct1 = show $ shiftR ip 24
-        oct2 = show $ shiftR (shiftL ip 8) 24
-        oct3 = show $ shiftR (shiftL ip 16) 24
-        oct4 = show $ shiftR (shiftL ip 24) 24
-    in oct1 ++ "." ++ oct2 ++ "." ++ oct3 ++ "." ++ oct4
+instance Pretty RejectType where
+    pretty RTNetUnreachable   = "icmp-net-unreachable"
+    pretty RTHostUnreachable  = "icmp-host-unreachable"
+    pretty RTPortUnreachable  = "icmp-port-unreachable"
+    pretty RTProtoUnreachable = "icmp-proto-unreachable"
+    pretty RTNetProhibited    = "icmp-net-prohibited"
+    pretty RTHostProhibited   = "icmp-host-prohibited"
+    pretty RTAdminProhibited  = "icmp-admin-prohibited"
+    pretty RTTcpReset         = "tcp-reset"
 
-printMacAddress :: MacAddr -> String
-printMacAddress (MacAddr a b c d e f) = showHex2 a $ showChar ':'
-                                      $ showHex2 b $ showChar ':'
-                                      $ showHex2 c $ showChar ':'
-                                      $ showHex2 d $ showChar ':'
-                                      $ showHex2 e $ showChar ':'
-                                      $ showHex2 f $ ""
-    where
-        showHex2 :: Word8 -> ShowS
-        showHex2 a = if a < 16 then showChar '0' . showHex a
-                               else showHex a
+instance Pretty NatAddress where
+    pretty (NAIp ip1 ip2) = prettyNatIp ip1 ip2
+    pretty (NAIpPort ip1 ip2 port1 port2) =
+        prettyNatIp ip1 ip2 <> ":" <> prettyNatIp port1 port2
 
-printInterface :: Interface -> String
-printInterface (Interface str) = str
+instance Pretty NatPort where
+    pretty NatPortDefault        = empty
+    pretty (NatPort port1 port2) = prettyNatIp port1 port2
 
-printPort :: Port -> String
-printPort (Port ps) = intercalate "," $ map show ps
-printPort (PortRange ps pe) = show ps ++ ":" ++ show pe
+prettyNatIp :: (Eq a, Pretty a) => a -> a -> Printer
+prettyNatIp ip1 ip2 | ip1 == ip2 = pretty ip1
+                    | otherwise  = pretty ip1 <> "-" <> pretty ip2
 
-printStates :: [CState] -> String
-printStates ss = intercalate "," $ map printState ss
-    where
-    printState st = case st of
-            CStInvalid -> "INVALID"
-            CStEstablished -> "ESTABLISHED"
-            CStNew -> "NEW"
-            CStRelated -> "RELATED"
-            CStUntracked -> "UNTRACKED"
+instance Pretty RuleOption where
+    pretty (OProtocol b p)         = prettyInv b <+> "-p" <+> string p
+    pretty (OSource b addr)        = prettyInv b <+> "-s" <+> pretty addr
+    pretty (ODest b addr)          = prettyInv b <+> "-d" <+> pretty addr
+    pretty (OInInt b int)          = prettyInv b <+> "-i" <+> pretty int
+    pretty (OOutInt b int)         = prettyInv b <+> "-o" <+> pretty int
+    pretty (OSourcePort b p)       = prettyInv b <+> "--sport" <+> pretty p
+    pretty (ODestPort b p)         = prettyInv b <+> "--dport" <+> pretty p
+    pretty (OModule m)             = "-m" <+> pretty m
+    pretty (OMacSource b m)        = prettyInv b <+> "--mac-source" <+> pretty m
+    pretty (OState s)              = "--state" <+> pretty (Set.toList s)
+    pretty (OPhysDevIsBridged b)   = prettyInv b <+> "--physdev-is-bridged"
+    pretty (OComment c)            = "--comment" <+> prettyComment c
+    pretty (OUnknown oName b opts) = prettyInv b <+> string oName <+> hsep (map string opts)
 
-printModule :: Module -> String
-printModule m = case m of
-        ModTcp -> "tcp"
-        ModUdp -> "udp"
-        ModLimit -> "limit"
-        ModMac -> "mac"
-        ModMark -> "mark"
-        ModMultiport -> "multiport"
-        ModOwner -> "owner"
-        ModState -> "state"
-        ModTos -> "tos"
-        ModTtl -> "ttl"
-        ModPhysDev -> "physdev"
-        ModComment -> "comment"
-        ModOther s -> s
+instance Pretty Addr where
+    pretty (AddrIP ip)        = pretty ip
+    pretty (AddrMask ip mask) = pretty ip <> "/" <> pretty mask
+    pretty (AddrPref ip pref) = pretty ip <> "/" <> int pref
 
-printNatAddr :: NatAddress -> String
-printNatAddr (NAIp ip1 ip2) = printNatIp ip1 ip2
-printNatAddr (NAIpPort ip1 ip2 port1 port2) = printNatIpPort ip1 ip2 port1 port2
+instance Pretty IP where
+    pretty (IP a b c d) = sepBy "." $ map word8 [a, b, c, d]
 
-printNatIp :: Word32 -> Word32 -> String
-printNatIp ip1 ip2 =
-    if ip1 == ip2 then printIp ip1
-                  else printIp ip1 ++ "-" ++ printIp ip2
+word8 :: Word8 -> Printer
+word8 = int . fromIntegral
 
-printNatIpPort :: Word32 -> Word32 -> Int -> Int -> String
-printNatIpPort ip1 ip2 port1 port2 =
-    let ipString = if ip1 == ip2 then printIp ip1
-                                else printIp ip1 ++ "-" ++ printIp ip2
-        portString = if port1 == port2 then show port1
-                                       else show port1 ++ "-" ++ show port2
-    in
-        ipString ++ ":" ++ portString
+instance Pretty Interface where
+    pretty (Interface i) = string i
 
-printNatPort :: NatPort -> String
-printNatPort NatPortDefault = ""
-printNatPort (NatPort port1 port2) =
-    if port1 == port2
-        then show port1
-        else show port1 ++ "-" ++ show port2
+instance Pretty Port where
+    pretty (Port ps)         = sepBy "," $ map int ps
+    pretty (PortRange ps pe) = int ps <> ":" <> int pe
 
-printRejectWith :: RejectType -> String
-printRejectWith rw = case rw of
-    RTNetUnreachable -> "icmp-net-unreachable"
-    RTHostUnreachable -> "icmp-host-unreachable"
-    RTPortUnreachable -> "icmp-port-unreachable"
-    RTProtoUnreachable -> "icmp-proto-unreachable"
-    RTNetProhibited -> "icmp-net-prohibited"
-    RTHostProhibited -> "icmp-host-prohibited"
-    RTAdminProhibited -> "icmp-admin-prohibited"
-    RTTcpReset -> "tcp-reset"
+prettyInv :: Bool -> Printer
+prettyInv True  = empty
+prettyInv False = "!"
+
+instance Pretty Limit where
+    pretty (Limit l) = string l
+
+instance Pretty CState where
+    pretty CStInvalid     = "INVALID"
+    pretty CStEstablished = "ESTABLISHED"
+    pretty CStNew         = "NEW"
+    pretty CStRelated     = "RELATED"
+    pretty CStUntracked   = "UNTRACKED"
+
+    prettyList = sepBy "," . map pretty
+
+instance Pretty Module where
+    pretty ModTcp       = "tcp"
+    pretty ModUdp       = "udp"
+    pretty ModLimit     = "limit"
+    pretty ModMac       = "mac"
+    pretty ModMark      = "mark"
+    pretty ModMultiport = "multiport"
+    pretty ModOwner     = "owner"
+    pretty ModState     = "state"
+    pretty ModTos       = "tos"
+    pretty ModTtl       = "ttl"
+    pretty ModPhysDev   = "physdev"
+    pretty ModComment   = "comment"
+    pretty (ModOther s) = string s
+
+instance Pretty MacAddr where
+    pretty (MacAddr a b c d e f) = sepBy ":" $ map prettyHex2 [a, b, c, d, e, f]
+
+prettyHex2 :: Word8 -> Printer
+prettyHex2 a | a < 16    = string $ '0' : showHex a ""
+             | otherwise = string $ showHex a ""
+
+prettyComment :: String -> Printer
+prettyComment = string . printComment
 
 -- | Iptables doesn't work correctly with russian chars.
 -- It's working only if a comment is enclosed with single quotes and it doesn't include spaces.
@@ -221,7 +193,7 @@ printComment com =
     in
     if onlyOneByteChars com
         then "\"" ++ com ++ "\""
-        else 
+        else
             let com' = if headMay com == Just '\'' then com
                                                    else "'" ++ com ++ "'"
                 com'' = if null (filter (== ' ') com') then com'

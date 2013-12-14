@@ -1,5 +1,4 @@
 {-# LANGUAGE DeriveDataTypeable#-}
-
 module Main where
 
 import Control.Monad
@@ -9,7 +8,7 @@ import Iptables
 import Iptables.Parser
 import Iptables.Print
 import Iptables.Types
-import Iptables.Types.Arbitrary
+import Iptables.Types.Arbitrary ()
 import System.Console.GetOpt
 import System.Environment
 import System.Exit
@@ -62,13 +61,13 @@ main = do
                     putStrLn $ show er
                 Right res -> do
      --               putStrLn "Iptables config has been parsed:"
-                    putStrLn $ printIptables $ sortIptables res
+                    putStrLn $ prettyIptables $ sortIptables res
             exitSuccess
         Nothing -> return ()
 
     when ( Gen `elem` opts) $ do
         testData <- sample' (arbitrary :: Gen Iptables)
-        putStr $ printIptables $ sortIptables $ testData !! 6
+        putStr $ prettyIptables $ sortIptables $ testData !! 6
         exitSuccess
 
     when (Test `elem` opts) $ do
@@ -76,9 +75,9 @@ main = do
         exitSuccess
 
 tryToParsePrint :: Iptables -> Result
-tryToParsePrint a = case parseIptables $ printIptables $ sortIptables a of
+tryToParsePrint a = case parseIptables $ prettyIptables $ sortIptables a of
     Left err -> MkResult (Just False) True
-                                      (show err ++ "\n" ++ printIptables (sortIptables a))
+                                      (show err ++ "\n" ++ prettyIptables (sortIptables a))
                                       False False [] []
     Right res ->
         let a' = sortIptables a
@@ -86,7 +85,7 @@ tryToParsePrint a = case parseIptables $ printIptables $ sortIptables a of
         in
         if a' == res' then MkResult (Just True) True "" False False [] []
                       else MkResult (Just False) True
-                                    ( printIptables a' ++ "\n" ++ printIptables res'
+                                    ( prettyIptables a' ++ "\n" ++ prettyIptables res'
                                     ++ iptablesDiff a' res'
                                     )
                                     False False [] []
@@ -137,7 +136,7 @@ chainDiff c1 c2 =
 
 rulesDiff :: [Rule] -> [Rule] -> String
 rulesDiff rs1 rs2 =
-    concat $ zipWith (\ r1 r2 -> 
+    concat $ zipWith (\ r1 r2 ->
         let equal = r1 == r2
         in
         if equal

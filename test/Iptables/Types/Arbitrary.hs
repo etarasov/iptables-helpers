@@ -1,11 +1,12 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Iptables.Types.Arbitrary where
 
-import Control.Applicative
-import Data.Bits
-import qualified Data.Set as Set
-import Data.Word
-import Iptables.Types
-import Test.QuickCheck
+import           Control.Applicative
+import           Data.Bits
+import qualified Data.Set            as Set
+import           Data.Word
+import           Iptables.Types
+import           Test.QuickCheck
 
 instance Arbitrary Iptables where
     arbitrary = do
@@ -128,7 +129,7 @@ filterRule userChains = do
             optNum <- choose (0,3)
             vectorOf optNum arbitrary
          <*> pure target
-        
+
 natRule :: [String] -> Gen Rule
 natRule userChains = do
     target <- oneof $ [ return TAccept
@@ -165,27 +166,27 @@ instance Arbitrary RejectType where
                          , RTTcpReset
                          ]
 
-ipAddress :: Gen Word32
-ipAddress = do
-    a <- choose (0,255)
-    b <- choose (0,255)
-    c <- choose (0,255)
-    d <- choose (0,255)
-    return $ shiftL a 24 + shiftL b 16 + shiftL c 8 + d
-
-ipMask :: Gen Word32
+ipMask :: Gen IP
 ipMask = do
     let a = maxBound :: Word32
     networkBits <- choose (1,32)
-    return $ shiftL a networkBits
+    return . toIP $ shiftL a networkBits
+  where
+    toIP :: Word32 -> IP
+    toIP ip = IP oct1 oct2 oct3 oct4
+      where
+        oct1 = fromIntegral $ shiftR ip 24
+        oct2 = fromIntegral $ shiftR (shiftL ip 8) 24
+        oct3 = fromIntegral $ shiftR (shiftL ip 16) 24
+        oct4 = fromIntegral $ shiftR (shiftL ip 24) 24
 
 instance Arbitrary NatAddress where
     arbitrary =
-        oneof [ NAIp <$> ipAddress <*> ipAddress
+        oneof [ NAIp <$> arbitrary <*> arbitrary
               , do
                     port1 <- choose (1,65535)
                     port2 <- choose (port1, 65535)
-                    NAIpPort <$> ipAddress <*> ipAddress <*> pure port1 <*> pure port2
+                    NAIpPort <$> arbitrary <*> arbitrary <*> pure port1 <*> pure port2
               ]
 
 instance Arbitrary NatPort where
@@ -220,10 +221,16 @@ instance Arbitrary RuleOption where
 
 instance Arbitrary Addr where
     arbitrary =
-        oneof [ AddrIP <$> ipAddress
-              , AddrMask <$> ipAddress <*> ipMask
-              , AddrPref <$> ipAddress <*> choose (1,32)
+        oneof [ AddrIP <$> arbitrary
+              , AddrMask <$> arbitrary <*> ipMask
+              , AddrPref <$> arbitrary <*> choose (1,32)
               ]
+
+instance Arbitrary IP where
+    arbitrary = IP <$> choose (0,255)
+                   <*> choose (0,255)
+                   <*> choose (0,255)
+                   <*> choose (0,255)
 
 instance Arbitrary Interface where
     arbitrary = Interface <$> elements ["eth0","eth1","eth2","br0","br1","wlan0","wlan1","ppp0","ppp1"]

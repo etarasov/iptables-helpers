@@ -1,20 +1,19 @@
-
 module Iptables.Types where
 
-import Data.Set
-import Data.Word
+import           Data.Word
+import           Data.Set                 (Set)
 
 data Iptables = Iptables { tFilter :: [Chain]
-                         , tNat :: [Chain]
+                         , tNat    :: [Chain]
                          , tMangle :: [Chain]
-                         , tRaw :: [Chain]
+                         , tRaw    :: [Chain]
                          }
                          deriving (Show, Eq)
 
-data Chain = Chain { cName :: String
-                   , cPolicy :: Policy
+data Chain = Chain { cName     :: String
+                   , cPolicy   :: Policy
                    , cCounters :: Counters
-                   , cRules :: [Rule]
+                   , cRules    :: [Rule]
                    }
                    deriving (Show)
 
@@ -29,13 +28,13 @@ data Policy = ACCEPT
             deriving (Show, Eq)
 
 data Counters = Counters { cPackets :: Integer
-                         , cBytes :: Integer
+                         , cBytes   :: Integer
                          }
                          deriving (Show, Eq)
 
 data Rule = Rule { rCounters :: Counters
-                 , rOptions :: [RuleOption]
-                 , rTarget :: RuleTarget
+                 , rOptions  :: [RuleOption]
+                 , rTarget   :: RuleTarget
                  }
                  deriving (Show)
 
@@ -65,8 +64,8 @@ data RejectType = RTNetUnreachable
                 | RTTcpReset
                 deriving (Show, Eq)
 
-data NatAddress = NAIp Word32 Word32
-                | NAIpPort Word32 Word32 Int Int
+data NatAddress = NAIp IP IP
+                | NAIpPort IP IP Int Int
                 deriving (Show, Eq)
 
 data NatPort = NatPort Int Int
@@ -111,13 +110,16 @@ data RuleOption = OProtocol Bool Protocol
  -}
 type Protocol = String
 
-data Addr = AddrIP Word32
-          | AddrMask Word32 Word32
-          | AddrPref Word32 Int
+data Addr = AddrIP IP
+          | AddrMask IP IP
+          | AddrPref IP Int
           deriving (Show, Eq)
 
-data Interface = Interface String
-               deriving (Show, Eq)
+data IP = IP Word8 Word8 Word8 Word8
+        deriving (Show, Eq)
+
+newtype Interface = Interface String
+                  deriving (Show, Eq)
 
 data Port = Port [Int]
           | PortRange Int Int
@@ -137,7 +139,7 @@ data Flag = FSyn
           | FNone
           deriving (Show, Eq)
 
-data Limit = Limit String
+newtype Limit = Limit String
           deriving (Show, Eq)
 
 data CState = CStInvalid
